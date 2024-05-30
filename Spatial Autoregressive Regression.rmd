@@ -1,0 +1,222 @@
+
+### Import Libraries
+
+```{r}
+library(lavaan)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(olsrr)
+library(gridExtra)
+library(margins)
+library(astsa)
+library(stargazer)
+library(plm)
+library(MASS)
+library(stats)
+library(glmnet)
+library(sp)
+library(Matrix)
+library(spdep)
+library(classInt)
+library(maptools)
+library(RColorBrewer)
+library(latticeExtra)
+require(rgdal)
+library(lmtest)
+library(tseries)
+library(spatialreg)
+# options(scipen=999)
+```
+
+##Read Data
+
+
+```{r}
+fgdb <- "C:/Users/padu/Dropbox (UNC Charlotte)/Providence Adu’s files/Objective 1/HousingCodeViolations.gdb"
+```
+
+```{r}
+fc <- readOGR(dsn=fgdb,layer="NPASpatialHousingViolations" )
+```
+
+```{r}
+# names(fc)
+```
+
+
+
+## Linear model with income and race
+
+## Sales Price
+```{r}
+model1A = lm(SalesPrice ~ Income_Change +MHIncome2010 + 
+            
+             +NewRes_Change+NewResCons2010+
+            Bldg_Change + Percent30Years2010 +
+         
+           +Dem_Change+NewResDems2010
+           +HousingViolationsRepairsChange+Repairs2010, data = fc)
+summary(model1A)
+```
+## Gross Rent 
+```{r}
+model1B = lm(GrossRent ~ Income_Change +MHIncome2010 +
+              
+            +NewRes_Change+NewResCons2010+ 
+              Bldg_Change + Percent30Years2010 +
+             
+           +Dem_Change+NewResDems2010
+           +HousingViolationsRepairsChange+Repairs2010, data = fc)
+summary(model1B)
+```
+
+## Linear model with income and race with Change in Sales Price/Gross Rent
+
+```{r}
+model2A = lm(SalesChange ~ NewRes_Change+NewResCons2010+
+             WhiteChange+PercentWhite2010+
+             Income_Change +MHIncome2010 +
+             Ownership_Change+PercentOwnerOccupied2010+
+             Bldg_Change + Percent30Years2010 +
+             Reno_Change+NewResReno2010+
+           +Dem_Change+NewResDems2010+
+             +HousingViolationsRepairsChange+Repairs2010, data = fc)
+summary(model2A)
+```
+
+```{r}
+model2B = lm(GrossRentChange ~ NewRes_Change+NewResCons2010+
+              WhiteChange+PercentWhite2010+
+              Income_Change +MHIncome2010 +
+             Ownership_Change+PercentOwnerOccupied2010+ 
+              Bldg_Change + Percent30Years2010 + 
+              Reno_Change+NewResReno2010+
+           +Dem_Change+NewResDems2010+ 
+             +HousingViolationsRepairsChange+Repairs2010, data = fc)
+summary(model2B)
+```
+
+
+## Breusch-Pagan test
+```{r}
+bptest(model1A)
+bptest(model1B)
+bptest(model2A)
+bptest(model2B)
+```
+
+```{r}
+jarque.bera.test(model1A$residuals)
+jarque.bera.test(model1B$residuals)
+jarque.bera.test(model2A$residuals)
+jarque.bera.test(model2B$residuals)
+```
+
+
+```{r}
+# hist(model$residuals, breaks = 40)
+```
+
+## Create Weight Matrix
+
+```{r}
+NPA_nb <- poly2nb(fc)
+WNPA <- nb2listw(NPA_nb, style="W")
+```
+
+#Moran's I test
+
+```{r}
+# lm.morantest(model1A,WNPA)
+lm.morantest(model1B,WNPA)
+# lm.morantest(model2A,WNPA)
+# lm.morantest(model2B,WNPA)
+```
+
+
+### Lagrange multiplier test 
+
+```{r}
+#lm.LMtests(model1A,WNPA,test=c("LMerr","RLMerr","LMlag","RLMlag"))
+lm.LMtests(model1B,WNPA,test=c("LMerr","RLMerr","LMlag","RLMlag"))
+# lm.LMtests(model2A,WNPA,test=c("LMerr","RLMerr","LMlag","RLMlag"))
+# lm.LMtests(model2B,WNPA,test=c("LMerr","RLMerr","LMlag","RLMlag"))
+```
+
+
+### model 
+
+```{r}
+modellag1A = lagsarlm(SalesPrice ~ Income_Change +MHIncome2010 + 
+            
+             +NewRes_Change+NewResCons2010+
+            Bldg_Change + Percent30Years2010 +
+             
+           +Dem_Change+NewResDems2010
+           +HousingViolationsRepairsChange+Repairs2010, data = fc,WNPA)
+summary(modellag1A)
+```
+
+```{r}
+RenomodelA <- list(model1B) 
+
+stargazer(RenomodelA, title = ('Regression Model Summary'),type = 'text',font.family = "Times New Roman", out = 'GrossRents.doc')
+```
+
+```{r}
+modellag1B = lagsarlm(GrossRent ~ Income_Change +MHIncome2010 + 
+            
+             +NewRes_Change+NewResCons2010+
+            Bldg_Change + Percent30Years2010 +
+             
+           +Dem_Change+NewResDems2010
+           +HousingViolationsRepairsChange+Repairs2010, data = fc,WNPA)
+summary(modellag1B)
+```
+
+
+
+```{r}
+modellag2A = lagsarlm(SalesChange ~ NewRes_Change+NewResCons2010+
+             WhiteChange+PercentWhite2010+
+             Income_Change +MHIncome2010 +
+             Ownership_Change+PercentOwnerOccupied2010+
+             Bldg_Change + Percent30Years2010 +
+             Reno_Change+NewResReno2010+
+           +Dem_Change+NewResDems2010+
+             +HousingViolationsRepairsChange+Repairs2010, data = fc,WNPA)
+summary(modellag2A)
+```
+
+```{r}
+modellag2B = lagsarlm(GrossRentChange ~ NewRes_Change+NewResCons2010+
+              WhiteChange+PercentWhite2010+
+              Income_Change +MHIncome2010 +
+             Ownership_Change+PercentOwnerOccupied2010+ 
+              Bldg_Change + Percent30Years2010 + 
+              Reno_Change+NewResReno2010+
+           +Dem_Change+NewResDems2010+ 
+             +HousingViolationsRepairsChange+Repairs2010, data = fc,WNPA)
+summary(modellag2B)
+```
+
+
+
+```{r}
+RenomodelB <- list(modellag1B) 
+
+stargazer(RenomodelB, title = ('Test of Spatial Dependency'),type = 'text')
+```
+
+```{r}
+Renomodel2A <- list(modellag2A) 
+
+stargazer(Renomodel2A, title = ('Test of Spatial Dependency'),type = 'text')
+```
+
+```{r}
+Renomodel2B <- list(modellag2B) 
+
+stargazer(Renomodel2B, title = ('Test of Spatial Dependency'),type = 'text')
+```
